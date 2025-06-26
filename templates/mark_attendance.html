@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+
+{% block title %}Mark Attendance - Face Detection Attendance System{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="mb-0">
+                    <i class="fas fa-check-circle me-2"></i>Mark Attendance
+                </h3>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <i class="fas fa-camera fa-4x text-primary mb-3"></i>
+                    <p class="lead">Upload a photo to automatically detect and mark attendance</p>
+                </div>
+                
+                <form method="POST" enctype="multipart/form-data" id="attendanceForm">
+                    <div class="mb-4">
+                        <label for="photo" class="form-label">
+                            <i class="fas fa-upload me-1"></i>Upload Photo for Attendance
+                        </label>
+                        <input type="file" class="form-control" id="photo" name="photo" accept="image/*" required>
+                        <div class="form-text">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Take or upload a clear photo containing the student's face
+                        </div>
+                    </div>
+                    
+                    <!-- Photo Preview -->
+                    <div class="mb-4" id="photoPreview" style="display: none;">
+                        <label class="form-label">Photo Preview</label>
+                        <div class="text-center">
+                            <img id="previewImage" src="" alt="Photo Preview" class="img-thumbnail" style="max-width: 300px; max-height: 300px;">
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-success btn-lg">
+                            <i class="fas fa-search me-2"></i>Detect and Mark Attendance
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Camera Capture Option -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-video me-2"></i>Camera Capture
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="text-center">
+                    <div id="cameraSection">
+                        <video id="video" width="320" height="240" autoplay style="display: none;" class="mb-3"></video>
+                        <canvas id="canvas" width="320" height="240" style="display: none;"></canvas>
+                        
+                        <div id="cameraControls">
+                            <button type="button" class="btn btn-primary me-2" id="startCamera">
+                                <i class="fas fa-video me-1"></i>Start Camera
+                            </button>
+                            <button type="button" class="btn btn-success me-2" id="capturePhoto" style="display: none;">
+                                <i class="fas fa-camera me-1"></i>Capture Photo
+                            </button>
+                            <button type="button" class="btn btn-secondary" id="stopCamera" style="display: none;">
+                                <i class="fas fa-stop me-1"></i>Stop Camera
+                            </button>
+                        </div>
+                        
+                        <div id="capturedImage" style="display: none;" class="mt-3">
+                            <img id="capturedPreview" src="" alt="Captured Photo" class="img-thumbnail mb-3" style="max-width: 300px;">
+                            <br>
+                            <button type="button" class="btn btn-success" id="submitCaptured">
+                                <i class="fas fa-check me-1"></i>Use This Photo
+                            </button>
+                            <button type="button" class="btn btn-secondary ms-2" id="retakePhoto">
+                                <i class="fas fa-redo me-1"></i>Retake
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Instructions -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>How It Works
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 text-center mb-3">
+                        <i class="fas fa-camera fa-2x text-primary mb-2"></i>
+                        <h6>1. Capture/Upload</h6>
+                        <p class="small text-muted">Take a photo or upload an image containing the student's face</p>
+                    </div>
+                    <div class="col-md-4 text-center mb-3">
+                        <i class="fas fa-search fa-2x text-info mb-2"></i>
+                        <h6>2. Face Detection</h6>
+                        <p class="small text-muted">Our system detects faces and matches them with registered students</p>
+                    </div>
+                    <div class="col-md-4 text-center mb-3">
+                        <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
+                        <h6>3. Mark Attendance</h6>
+                        <p class="small text-muted">Attendance is automatically marked if a match is found</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Photo preview functionality
+document.getElementById('photo').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('previewImage').src = e.target.result;
+            document.getElementById('photoPreview').style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+    } else {
+        document.getElementById('photoPreview').style.display = 'none';
+    }
+});
+
+// Camera functionality
+let video = document.getElementById('video');
+let canvas = document.getElementById('canvas');
+let context = canvas.getContext('2d');
+let stream = null;
+
+document.getElementById('startCamera').addEventListener('click', async function() {
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+        video.style.display = 'block';
+        
+        document.getElementById('startCamera').style.display = 'none';
+        document.getElementById('capturePhoto').style.display = 'inline-block';
+        document.getElementById('stopCamera').style.display = 'inline-block';
+    } catch (err) {
+        alert('Error accessing camera: ' + err.message);
+    }
+});
+
+document.getElementById('capturePhoto').addEventListener('click', function() {
+    context.drawImage(video, 0, 0, 320, 240);
+    const dataURL = canvas.toDataURL('image/png');
+    
+    document.getElementById('capturedPreview').src = dataURL;
+    document.getElementById('capturedImage').style.display = 'block';
+    
+    // Hide video and capture button
+    video.style.display = 'none';
+    document.getElementById('capturePhoto').style.display = 'none';
+});
+
+document.getElementById('stopCamera').addEventListener('click', function() {
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+    }
+    
+    video.style.display = 'none';
+    document.getElementById('startCamera').style.display = 'inline-block';
+    document.getElementById('capturePhoto').style.display = 'none';
+    document.getElementById('stopCamera').style.display = 'none';
+    document.getElementById('capturedImage').style.display = 'none';
+});
+
+document.getElementById('retakePhoto').addEventListener('click', function() {
+    video.style.display = 'block';
+    document.getElementById('capturePhoto').style.display = 'inline-block';
+    document.getElementById('capturedImage').style.display = 'none';
+});
+
+document.getElementById('submitCaptured').addEventListener('click', function() {
+    // Convert canvas to blob and submit
+    canvas.toBlob(function(blob) {
+        const formData = new FormData();
+        formData.append('photo', blob, 'captured_photo.png');
+        
+        fetch('{{ url_for("mark_attendance") }}', {
+            method: 'POST',
+            body: formData
+        }).then(response => {
+            if (response.ok) {
+                window.location.reload();
+            } else {
+                alert('Error submitting photo');
+            }
+        }).catch(err => {
+            alert('Error: ' + err.message);
+        });
+    }, 'image/png');
+});
+</script>
+{% endblock %}

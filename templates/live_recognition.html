@@ -1,0 +1,466 @@
+{% extends "base.html" %}
+
+{% block title %}Live Face Recognition - Face Detection Attendance System{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-video me-2"></i>Live Face Recognition
+        </h1>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Camera Feed -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-camera me-2"></i>Camera Feed
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="text-center position-relative">
+                    <div class="video-container position-relative d-inline-block">
+                        <video id="video" width="640" height="480" autoplay style="display: none;" class="border rounded"></video>
+                        <canvas id="overlay" width="640" height="480" style="position: absolute; top: 0; left: 0; display: none;" class="border rounded"></canvas>
+                        <canvas id="canvas" width="640" height="480" style="display: none;"></canvas>
+                    </div>
+                    
+                    <!-- Camera Controls -->
+                    <div id="cameraControls" class="mt-3">
+                        <button type="button" class="btn btn-primary btn-lg me-2" id="startCamera">
+                            <i class="fas fa-video me-1"></i>Start Camera
+                        </button>
+                        <button type="button" class="btn btn-danger btn-lg" id="stopCamera" style="display: none;">
+                            <i class="fas fa-stop me-1"></i>Stop Camera
+                        </button>
+                    </div>
+                    
+                    <!-- Camera Status -->
+                    <div id="cameraStatus" class="mt-3">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Click "Start Camera" to begin face recognition
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Recognition Log -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-history me-2"></i>Recognition Log
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="recognitionLog" class="recognition-log" style="max-height: 300px; overflow-y: auto;">
+                    <div class="text-muted text-center py-3">
+                        <i class="fas fa-clock me-2"></i>Recognition events will appear here...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recognized People Panel -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-users me-2"></i>Recognized People
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="recognizedPeople">
+                    <div class="text-muted text-center py-4">
+                        <i class="fas fa-user-slash fa-2x mb-2"></i>
+                        <p>No one recognized yet</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Today's Stats -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>Today's Statistics
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6">
+                        <h3 class="text-primary mb-0" id="todayRecognized">0</h3>
+                        <small class="text-muted">Recognized</small>
+                    </div>
+                    <div class="col-6">
+                        <h3 class="text-success mb-0" id="todayPresent">0</h3>
+                        <small class="text-muted">Present</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Recognition Settings -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-cog me-2"></i>Settings
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="confidenceThreshold" class="form-label">
+                        Confidence Threshold: <span id="thresholdValue">60%</span>
+                    </label>
+                    <input type="range" class="form-range" id="confidenceThreshold" 
+                           min="50" max="90" value="60" step="5">
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="autoMarkAttendance" checked>
+                    <label class="form-check-label" for="autoMarkAttendance">
+                        Auto-mark attendance
+                    </label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="continuousRecognition" checked>
+                    <label class="form-check-label" for="continuousRecognition">
+                        Continuous recognition
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+class LiveFaceRecognition {
+    constructor() {
+        this.video = document.getElementById('video');
+        this.canvas = document.getElementById('canvas');
+        this.overlay = document.getElementById('overlay');
+        this.context = this.canvas.getContext('2d');
+        this.overlayContext = this.overlay.getContext('2d');
+        this.stream = null;
+        this.isRecognizing = false;
+        this.recognitionInterval = null;
+        this.faceDetectionInterval = null;
+        this.confidenceThreshold = 0.6;
+        this.recognizedToday = new Set();
+        
+        this.initializeControls();
+        this.loadTodayStats();
+    }
+    
+    initializeControls() {
+        document.getElementById('startCamera').addEventListener('click', () => this.startCamera());
+        document.getElementById('stopCamera').addEventListener('click', () => this.stopCamera());
+        
+        // Confidence threshold slider
+        const thresholdSlider = document.getElementById('confidenceThreshold');
+        thresholdSlider.addEventListener('input', (e) => {
+            this.confidenceThreshold = e.target.value / 100;
+            document.getElementById('thresholdValue').textContent = e.target.value + '%';
+        });
+    }
+    
+    async startCamera() {
+        try {
+            this.stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { 
+                    width: { ideal: 640 },
+                    height: { ideal: 480 },
+                    facingMode: 'user'
+                } 
+            });
+            
+            this.video.srcObject = this.stream;
+            this.video.style.display = 'block';
+            this.overlay.style.display = 'block';
+            
+            document.getElementById('startCamera').style.display = 'none';
+            document.getElementById('stopCamera').style.display = 'inline-block';
+            
+            this.updateStatus('Camera started - Face recognition active', 'success');
+            
+            // Start recognition and face detection loops
+            this.video.addEventListener('loadeddata', () => {
+                this.startRecognitionLoop();
+                this.startFaceDetectionLoop();
+            });
+            
+        } catch (error) {
+            console.error('Error accessing camera:', error);
+            this.updateStatus('Error accessing camera: ' + error.message, 'danger');
+        }
+    }
+    
+    stopCamera() {
+        if (this.stream) {
+            this.stream.getTracks().forEach(track => track.stop());
+            this.stream = null;
+        }
+        
+        if (this.recognitionInterval) {
+            clearInterval(this.recognitionInterval);
+            this.recognitionInterval = null;
+        }
+        
+        if (this.faceDetectionInterval) {
+            clearInterval(this.faceDetectionInterval);
+            this.faceDetectionInterval = null;
+        }
+        
+        this.video.style.display = 'none';
+        this.overlay.style.display = 'none';
+        this.video.srcObject = null;
+        this.isRecognizing = false;
+        
+        // Clear overlay
+        this.overlayContext.clearRect(0, 0, this.overlay.width, this.overlay.height);
+        
+        document.getElementById('startCamera').style.display = 'inline-block';
+        document.getElementById('stopCamera').style.display = 'none';
+        
+        this.updateStatus('Camera stopped', 'secondary');
+    }
+    
+    startFaceDetectionLoop() {
+        // Draw face bounding boxes in real-time
+        this.faceDetectionInterval = setInterval(() => {
+            this.drawFaceBoundingBoxes();
+        }, 100); // Update every 100ms for smooth overlay
+    }
+    
+    drawFaceBoundingBoxes() {
+        if (!this.video || this.video.videoWidth === 0) return;
+        
+        // Clear previous overlay
+        this.overlayContext.clearRect(0, 0, this.overlay.width, this.overlay.height);
+        
+        // Set canvas size to match video
+        this.overlay.width = this.video.videoWidth;
+        this.overlay.height = this.video.videoHeight;
+        
+        // Draw current frame to hidden canvas for face detection
+        this.canvas.width = this.video.videoWidth;
+        this.canvas.height = this.video.videoHeight;
+        this.context.drawImage(this.video, 0, 0);
+        
+        // Get image data and create a blob for face detection
+        this.canvas.toBlob(async (blob) => {
+            try {
+                const formData = new FormData();
+                formData.append('image', blob, 'detection.png');
+                
+                const response = await fetch('/api/detect_faces', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success && result.faces) {
+                    // Draw bounding boxes around detected faces
+                    this.overlayContext.strokeStyle = '#00ff00';
+                    this.overlayContext.lineWidth = 3;
+                    this.overlayContext.font = '16px Arial';
+                    this.overlayContext.fillStyle = '#00ff00';
+                    
+                    result.faces.forEach((face, index) => {
+                        // Scale coordinates to match overlay size
+                        const scaleX = this.overlay.width / this.video.videoWidth;
+                        const scaleY = this.overlay.height / this.video.videoHeight;
+                        
+                        const x = face.x * scaleX;
+                        const y = face.y * scaleY;
+                        const width = face.width * scaleX;
+                        const height = face.height * scaleY;
+                        
+                        // Draw rectangle
+                        this.overlayContext.strokeRect(x, y, width, height);
+                        
+                        // Draw label background
+                        const label = `Face ${index + 1}`;
+                        const textWidth = this.overlayContext.measureText(label).width;
+                        this.overlayContext.fillStyle = 'rgba(0, 255, 0, 0.8)';
+                        this.overlayContext.fillRect(x, y - 25, textWidth + 10, 20);
+                        
+                        // Draw label text
+                        this.overlayContext.fillStyle = '#000';
+                        this.overlayContext.fillText(label, x + 5, y - 10);
+                    });
+                }
+            } catch (error) {
+                // Silently fail for face detection overlay to avoid spam
+            }
+        }, 'image/png');
+    }
+    
+    startRecognitionLoop() {
+        if (!document.getElementById('continuousRecognition').checked) return;
+        
+        this.recognitionInterval = setInterval(() => {
+            if (this.isRecognizing) return; // Skip if already processing
+            this.captureAndRecognize();
+        }, 2000); // Recognize every 2 seconds
+    }
+    
+    async captureAndRecognize() {
+        if (!this.video || this.video.videoWidth === 0) return;
+        
+        this.isRecognizing = true;
+        
+        // Draw current frame to canvas
+        this.canvas.width = this.video.videoWidth;
+        this.canvas.height = this.video.videoHeight;
+        this.context.drawImage(this.video, 0, 0);
+        
+        // Convert canvas to blob
+        this.canvas.toBlob(async (blob) => {
+            try {
+                const formData = new FormData();
+                formData.append('image', blob, 'recognition.png');
+                
+                const response = await fetch('/api/recognize_face', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                this.handleRecognitionResult(result);
+                
+            } catch (error) {
+                console.error('Recognition error:', error);
+            } finally {
+                this.isRecognizing = false;
+            }
+        }, 'image/png');
+    }
+    
+    handleRecognitionResult(result) {
+        const timestamp = new Date().toLocaleTimeString();
+        
+        if (result.recognized) {
+            this.addRecognizedPerson(result);
+            this.addLogEntry(
+                `${timestamp}: ${result.student_name} recognized (${result.confidence}% confidence)`,
+                result.already_marked ? 'warning' : 'success'
+            );
+            
+            if (!result.already_marked) {
+                this.recognizedToday.add(result.student_id);
+                this.updateTodayStats();
+            }
+        } else if (result.message.includes('No faces detected')) {
+            // Don't log every "no face" detection to avoid spam
+        } else {
+            this.addLogEntry(`${timestamp}: ${result.message}`, 'info');
+        }
+    }
+    
+    addRecognizedPerson(result) {
+        const recognizedContainer = document.getElementById('recognizedPeople');
+        
+        // Remove "no one recognized" message
+        if (recognizedContainer.querySelector('.text-muted')) {
+            recognizedContainer.innerHTML = '';
+        }
+        
+        // Check if person already displayed
+        const existingCard = document.getElementById(`person-${result.student_id}`);
+        if (existingCard) {
+            // Update confidence
+            existingCard.querySelector('.confidence-badge').textContent = `${result.confidence}%`;
+            return;
+        }
+        
+        const personCard = document.createElement('div');
+        personCard.id = `person-${result.student_id}`;
+        personCard.className = 'card mb-3';
+        personCard.innerHTML = `
+            <div class="card-body p-3">
+                <div class="d-flex align-items-center">
+                    <div class="bg-primary rounded-circle me-3 d-flex align-items-center justify-content-center" 
+                         style="width: 50px; height: 50px;">
+                        <i class="fas fa-user text-white"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h6 class="mb-1">${result.student_name}</h6>
+                        <small class="text-muted">${result.student_id}</small>
+                        <div class="mt-1">
+                            <span class="badge bg-${result.already_marked ? 'warning' : 'success'} confidence-badge">
+                                ${result.confidence}%
+                            </span>
+                            ${result.already_marked ? 
+                                '<span class="badge bg-info ms-1">Already Present</span>' : 
+                                '<span class="badge bg-success ms-1">Marked Present</span>'
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        recognizedContainer.appendChild(personCard);
+    }
+    
+    addLogEntry(message, type) {
+        const logContainer = document.getElementById('recognitionLog');
+        
+        // Remove placeholder message
+        if (logContainer.querySelector('.text-muted')) {
+            logContainer.innerHTML = '';
+        }
+        
+        const logEntry = document.createElement('div');
+        logEntry.className = `alert alert-${type} py-2 mb-2`;
+        logEntry.innerHTML = `<small>${message}</small>`;
+        
+        logContainer.appendChild(logEntry);
+        logContainer.scrollTop = logContainer.scrollHeight;
+        
+        // Keep only last 20 entries
+        while (logContainer.children.length > 20) {
+            logContainer.removeChild(logContainer.firstChild);
+        }
+    }
+    
+    updateStatus(message, type) {
+        const statusContainer = document.getElementById('cameraStatus');
+        statusContainer.innerHTML = `
+            <div class="alert alert-${type}">
+                <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'danger' ? 'exclamation-triangle' : 'info-circle'} me-2"></i>
+                ${message}
+            </div>
+        `;
+    }
+    
+    async loadTodayStats() {
+        try {
+            // This would ideally come from an API endpoint
+            // For now, we'll update it based on recognition events
+            this.updateTodayStats();
+        } catch (error) {
+            console.error('Error loading stats:', error);
+        }
+    }
+    
+    updateTodayStats() {
+        document.getElementById('todayRecognized').textContent = this.recognizedToday.size;
+        document.getElementById('todayPresent').textContent = this.recognizedToday.size;
+    }
+}
+
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    window.faceRecognition = new LiveFaceRecognition();
+});
+</script>
+{% endblock %}

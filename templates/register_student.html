@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}Register Student - Face Detection Attendance System{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="mb-0">
+                    <i class="fas fa-user-plus me-2"></i>Register New Student
+                </h3>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data" id="registerForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="name" class="form-label">
+                                    <i class="fas fa-user me-1"></i>Full Name *
+                                </label>
+                                <input type="text" class="form-control" id="name" name="name" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="student_id" class="form-label">
+                                    <i class="fas fa-id-card me-1"></i>Student ID *
+                                </label>
+                                <input type="text" class="form-control" id="student_id" name="student_id" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="email" class="form-label">
+                            <i class="fas fa-envelope me-1"></i>Email Address
+                        </label>
+                        <input type="email" class="form-control" id="email" name="email">
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="photo" class="form-label">
+                            <i class="fas fa-camera me-1"></i>Student Photo *
+                        </label>
+                        <input type="file" class="form-control" id="photo" name="photo" accept="image/*" required>
+                        <div class="form-text">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Upload a clear photo with the student's face visible. Supported formats: PNG, JPG, JPEG, GIF
+                        </div>
+                    </div>
+                    
+                    <!-- Photo Preview -->
+                    <div class="mb-4" id="photoPreview" style="display: none;">
+                        <label class="form-label">Photo Preview</label>
+                        <div class="text-center">
+                            <img id="previewImage" src="" alt="Photo Preview" class="img-thumbnail" style="max-width: 200px; max-height: 200px;">
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('student_list') }}" class="btn btn-secondary me-md-2">
+                            <i class="fas fa-times me-1"></i>Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i>Register Student
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Instructions Card -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-lightbulb me-2"></i>Photo Guidelines
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-check-circle text-success me-1"></i>Do:</h6>
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-dot-circle text-success me-2"></i>Use good lighting</li>
+                            <li><i class="fas fa-dot-circle text-success me-2"></i>Face should be clearly visible</li>
+                            <li><i class="fas fa-dot-circle text-success me-2"></i>Look directly at the camera</li>
+                            <li><i class="fas fa-dot-circle text-success me-2"></i>Remove glasses if possible</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-times-circle text-danger me-1"></i>Don't:</h6>
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-dot-circle text-danger me-2"></i>Use blurry or dark photos</li>
+                            <li><i class="fas fa-dot-circle text-danger me-2"></i>Cover face with hands or objects</li>
+                            <li><i class="fas fa-dot-circle text-danger me-2"></i>Use photos with multiple people</li>
+                            <li><i class="fas fa-dot-circle text-danger me-2"></i>Extreme angles or poses</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('photo').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('previewImage').src = e.target.result;
+            document.getElementById('photoPreview').style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+    } else {
+        document.getElementById('photoPreview').style.display = 'none';
+    }
+});
+</script>
+{% endblock %}

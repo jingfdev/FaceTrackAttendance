@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Face Detection Attendance System{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+        </h1>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row g-4 mb-5">
+    <div class="col-md-4">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="card-title">Total Students</h5>
+                        <h2 class="mb-0">{{ total_students }}</h2>
+                    </div>
+                    <div class="fs-1 opacity-75">
+                        <i class="fas fa-users"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="card-title">Today's Attendance</h5>
+                        <h2 class="mb-0">{{ today_attendance }}</h2>
+                    </div>
+                    <div class="fs-1 opacity-75">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="card-title">Attendance Rate</h5>
+                        <h2 class="mb-0">
+                            {% if total_students > 0 %}
+                                {{ "%.1f"|format((today_attendance / total_students) * 100) }}%
+                            {% else %}
+                                0%
+                            {% endif %}
+                        </h2>
+                    </div>
+                    <div class="fs-1 opacity-75">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row g-4 mb-5">
+    <div class="col-12">
+        <h3 class="mb-3">Quick Actions</h3>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-user-plus fa-3x text-primary mb-3"></i>
+                <h5 class="card-title">Register Student</h5>
+                <p class="card-text">Add a new student with photo for face recognition</p>
+                <a href="{{ url_for('register_student') }}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i>Register
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-video fa-3x text-success mb-3"></i>
+                <h5 class="card-title">Live Recognition</h5>
+                <p class="card-text">Real-time face recognition with camera</p>
+                <a href="{{ url_for('live_recognition') }}" class="btn btn-success">
+                    <i class="fas fa-video me-1"></i>Start Live
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-camera fa-3x text-info mb-3"></i>
+                <h5 class="card-title">Mark Attendance</h5>
+                <p class="card-text">Upload photo to mark student attendance</p>
+                <a href="{{ url_for('mark_attendance') }}" class="btn btn-info">
+                    <i class="fas fa-upload me-1"></i>Upload
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-users fa-3x text-info mb-3"></i>
+                <h5 class="card-title">View Students</h5>
+                <p class="card-text">Manage registered students and their information</p>
+                <a href="{{ url_for('student_list') }}" class="btn btn-info">
+                    <i class="fas fa-eye me-1"></i>View
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-list fa-3x text-warning mb-3"></i>
+                <h5 class="card-title">Attendance Records</h5>
+                <p class="card-text">View and manage attendance history</p>
+                <a href="{{ url_for('attendance_records') }}" class="btn btn-warning">
+                    <i class="fas fa-history me-1"></i>Records
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Attendance -->
+{% if recent_attendance %}
+<div class="row">
+    <div class="col-12">
+        <h3 class="mb-3">Recent Attendance</h3>
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Student</th>
+                                <th>Date</th>
+                                <th>Time</th>
+                                <th>Method</th>
+                                <th>Confidence</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for record in recent_attendance %}
+                            <tr>
+                                <td>
+                                    <i class="fas fa-user me-2"></i>
+                                    {{ record.student.name }}
+                                </td>
+                                <td>{{ record.date.strftime('%Y-%m-%d') }}</td>
+                                <td>{{ record.timestamp.strftime('%H:%M:%S') }}</td>
+                                <td>
+                                    <span class="badge bg-{{ 'primary' if record.detection_method == 'face_detection' else 'secondary' }}">
+                                        <i class="fas fa-{{ 'camera' if record.detection_method == 'face_detection' else 'hand-pointer' }} me-1"></i>
+                                        {{ record.detection_method.replace('_', ' ').title() }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if record.confidence_score %}
+                                        <span class="badge bg-{{ 'success' if record.confidence_score > 0.8 else 'warning' if record.confidence_score > 0.6 else 'danger' }}">
+                                            {{ "%.1f"|format(record.confidence_score * 100) }}%
+                                        </span>
+                                    {% else %}
+                                        <span class="text-muted">N/A</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="text-center mt-3">
+                    <a href="{{ url_for('attendance_records') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-eye me-1"></i>View All Records
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="row">
+    <div class="col-12">
+        <h3 class="mb-3">Recent Attendance</h3>
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">No Attendance Records Yet</h5>
+                <p class="text-muted">Start by registering students and marking their attendance.</p>
+                <a href="{{ url_for('mark_attendance') }}" class="btn btn-primary">
+                    <i class="fas fa-check-circle me-1"></i>Mark First Attendance
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
